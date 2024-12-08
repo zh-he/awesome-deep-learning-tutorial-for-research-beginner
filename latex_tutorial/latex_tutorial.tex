@@ -1,0 +1,314 @@
+\documentclass[12pt]{article}
+
+% Packages
+\usepackage[margin=1in]{geometry}  % Page layout
+\usepackage{graphicx}             % For figures
+\usepackage{hyperref}             % For clickable links
+\usepackage{amsmath}              % For math equations
+\usepackage{caption}              % For better captions
+\usepackage{listings}             % For code listings
+\usepackage{comment}              % For multiline comments
+
+% Title and Author
+\title{LaTeX Beginner Tutorial}
+\author{Zhihai He}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% 1. Basic Page Layout
+\section{Basic Page Layout}
+The \texttt{\textbackslash documentclass} command defines the type of document. For example:
+\begin{itemize}
+    \item \texttt{article}: Suitable for short documents.
+    \item \texttt{report}: For longer documents, such as theses.
+    \item \texttt{book}: For books.
+\end{itemize}
+
+You can adjust the page layout using the \texttt{geometry} package. Example:
+\begin{lstlisting}
+\usepackage[margin=1in]{geometry}
+\end{lstlisting}
+
+% 2. Titles and Sections
+\section{Titles and Sections}
+Define the title, author, and date of your document:
+\begin{lstlisting}
+\title{LaTeX Beginner Tutorial}
+\author{Zhihai He}
+\date{\today}
+\maketitle
+\end{lstlisting}
+
+To structure your content, use:
+\begin{itemize}
+    \item \texttt{\textbackslash section\{...\}}: First-level heading.
+    \item \texttt{\textbackslash subsection\{...\}}: Second-level heading.
+    \item \texttt{\textbackslash subsubsection\{...\}}: Third-level heading.
+\end{itemize}
+
+To create unnumbered sections that do not appear in the Table of Contents, use:
+\begin{itemize}
+    \item \texttt{\textbackslash section*\{...\}}
+    \item \texttt{\textbackslash subsection*\{...\}}
+    \item \texttt{\textbackslash subsubsection*\{...\}}
+\end{itemize}
+
+% 3. New Page, New Line, and Comments
+\section{New Page, New Line, and Comments}
+\texttt{\textbackslash newpage} starts a new page. \texttt{\textbackslash\textbackslash} creates a new line within the same paragraph. 
+
+\texttt{\%} is used for single-line comments, while multiline comments can be created using the \texttt{comment} package. Examples:
+
+\begin{lstlisting}
+% This is a single-line comment.
+\end{lstlisting}
+
+\begin{lstlisting}
+\usepackage{comment}
+
+\begin{comment}
+    This is a multiline comment.
+    This is another line in the comment.
+\end{comment}
+\end{lstlisting}
+
+% 4. Inserting Mathematical Formulas
+\section{Inserting Mathematical Formulas}
+LaTeX provides multiple ways to insert mathematical formulas, depending on the context and formatting requirements. Below are some commonly used methods:
+
+\subsection*{Inline Formulas}
+Inline formulas are embedded within text and written using \texttt{\$...\$} or \texttt{\textbackslash(...\textbackslash)}.
+
+\begin{itemize}
+    \item Example using \texttt{\$...\$}: \\
+    This is an inline formula: $E = mc^2$.
+    \item Example using \texttt{\textbackslash(...\textbackslash)}:\\
+    This is another inline formula: \( a^2 + b^2 = c^2 \).
+\end{itemize}
+
+\subsection*{Displayed Formulas}
+Displayed formulas are centered and occupy their own line. They can be written using \texttt{\textbackslash[\textbackslash]} or the \texttt{equation} environment (with optional numbering).
+
+\begin{itemize}
+    \item Without numbering:
+    \[
+    a^2 + b^2 = c^2
+    \]
+    \item With numbering:
+    \begin{equation}
+        E = mc^2
+        \label{eq:energy}
+    \end{equation}
+    The formula \eqref{eq:energy} is Einstein's energy-mass equivalence.
+\end{itemize}
+
+\subsection*{Aligned Formulas}
+Use the \texttt{align} environment to align multiple equations. The \texttt{\&} symbol specifies the alignment point.
+
+\begin{align}
+    a + b &= c \label{eq:line1} \\
+    x + y &= z
+\end{align}
+
+The equation \eqref{eq:line1} shows an example of aligned formulas.
+
+\subsection*{Cases and Matrices}
+For piecewise functions or matrices, special environments like \texttt{cases} and \texttt{bmatrix} are used.
+
+\begin{itemize}
+    \item Piecewise function using \texttt{cases}:
+    \[
+    f(x) =
+    \begin{cases} 
+        x^2 & \text{if } x \geq 0, \\
+        -x  & \text{if } x < 0.
+    \end{cases}
+    \]
+    \item Matrix using \texttt{bmatrix}:
+    \[
+    A=
+    \begin{bmatrix}
+        1 & 2 \\
+        3 & 4
+    \end{bmatrix}
+    \]
+\end{itemize}
+
+\subsection*{Custom Formula Tags}
+You can customize the numbering of equations using the \texttt{\textbackslash tag} command.
+
+\[
+a^2 + b^2 = c^2 \tag{Pythagoras}
+\]
+
+\subsection*{Unnumbered Formulas}
+To suppress numbering for equations, use the \texttt{align*} or \texttt{equation*} environments.
+
+\begin{align*}
+    a + b &= c \\
+    x + y &= z
+\end{align*}
+
+\subsection*{Some Mathematical Symbols}
+LaTeX provides a rich set of mathematical symbols for use in equations. Examples include:
+
+\begin{itemize}
+    \item Operators: \( +, -, \times, \div \)
+    \item Greek letters: \( \alpha, \beta, \gamma, \pi \)
+    \item Logical symbols: \( \forall, \exists, \neg, \wedge, \vee \)
+    \item Set symbols: \( \cup, \cap, \subseteq, \infty \)
+    \item Arrows: \( \rightarrow, \Leftarrow, \iff \)
+\end{itemize}
+
+% 5. Adding Figures
+\section{Adding Figures}
+To include an image, use the \texttt{graphicx} package. Example:
+\begin{lstlisting}
+\usepackage{graphicx}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/example.jpg}
+    \caption{Sample Image}
+    \label{fig:sample}
+\end{figure}
+\end{lstlisting}
+
+Ensure the image is in the \texttt{images/} folder.
+
+% 6. Creating Tables
+\section{Creating Tables}
+Tables can be created using the \texttt{tabular} environment. Example:
+\begin{lstlisting}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        Column 1 & Column 2 & Column 3 \\
+        \hline
+        Data 1   & Data 2   & Data 3   \\
+        \hline
+    \end{tabular}
+    \caption{Sample Table}
+    \label{tab:sample}
+\end{table}
+\end{lstlisting}
+
+% 7. Adding Footnotes
+\section{Adding Footnotes}
+Add footnotes using \texttt{\textbackslash footnote\{...\}}. Example:
+\begin{lstlisting}
+This is a sample footnote.\footnote{Here is the footnote content.}
+\end{lstlisting}
+This a sampe footnote\footnote{Here is the footnote content}.
+% 8. Using BibTeX for References
+\section{Using BibTeX for References}
+To manage references, create a \texttt{.bib} file (e.g., \texttt{references.bib}) with the following content:
+\begin{lstlisting}
+@article{vaswani2017attention,
+  title={Attention is all you need},
+  author={Vaswani, A},
+  journal={Advances in Neural Information Processing Systems},
+  year={2017}
+}
+\end{lstlisting}
+
+In your LaTeX file, use:
+\begin{lstlisting}
+\bibliographystyle{plain}
+\bibliography{references}
+\end{lstlisting}
+Attenion is all you need\cite{vaswani2017attention}.
+
+% 9. Custom: LaTeX Programming Practices
+\section{Custom: LaTeX Programming Practices}
+\label{sec:customs}
+When writing in LaTeX, it's important to follow good programming practices to ensure the document is well-structured, easy to maintain, and visually appealing. Below are some commonly recommended LaTeX coding habits:
+
+\subsection*{Use Logical Sections}
+Organize your document into sections, subsections, and subsubsections using:
+\begin{itemize}
+    \item \texttt{\textbackslash section\{...\}}: For major sections.
+    \item \texttt{\textbackslash subsection\{...\}}: For subsections.
+    \item \texttt{\textbackslash subsubsection\{...\}}: For detailed sections.
+\end{itemize}
+Keep sections concise and avoid overusing \texttt{\textbackslash subsubsection} unless necessary.
+
+\subsection*{Break Lines Thoughtfully}
+LaTeX ignores single line breaks in the source file. To indicate a new paragraph, leave an empty line between two paragraphs. For example:
+\begin{lstlisting}
+This is the first paragraph.
+
+This is the second paragraph.
+\end{lstlisting}
+Do not use \texttt{\textbackslash\textbackslash} for creating new paragraphs. Instead, reserve it for line breaks within the same paragraph.
+
+\subsection*{Use Comments for Clarity}
+Use \texttt{\%} to add comments to your LaTeX file. Comments are ignored during compilation and can be helpful for:
+\begin{itemize}
+    \item Explaining complex parts of the code.
+    \item Temporarily disabling sections during debugging.
+\end{itemize}
+
+Example:
+\begin{lstlisting}
+% This is a single-line comment
+\end{lstlisting}
+
+For longer comments, consider using the \texttt{comment} package:
+\begin{lstlisting}
+\usepackage{comment}
+
+\begin{comment}
+This section is temporarily disabled.
+\end{comment}
+\end{lstlisting}
+
+\subsection*{Keep Lines Short}
+Limit the length of each line in your LaTeX source to around 80 characters. This makes the file easier to read and edit, especially in version control systems.
+
+\subsection*{Use Meaningful Labels}
+When labeling sections, figures, and tables, use clear and consistent names. For example:
+\begin{lstlisting}
+\label{sec:introduction} % For sections
+\label{fig:sample}       % For figures
+\label{tab:results}      % For tables
+\end{lstlisting}
+Example:\ref{sec:customs} is about LaTeX programming custom.
+This makes cross-referencing easier and improves the readability of your code.
+
+\subsection*{Avoid Hardcoding Layout}
+Instead of manually adjusting spaces or positions, use LaTeX commands and environments designed for layout. For example:
+\begin{itemize}
+    \item Use \texttt{\textbackslash vspace} and \texttt{\textbackslash hspace} sparingly.
+    \item Avoid fixed-width adjustments like \texttt{\textbackslash hskip}.
+    \item Use packages like \texttt{geometry} and \texttt{graphicx} for flexible layout control.
+\end{itemize}
+
+\subsection*{Test and Compile Frequently}
+Frequent compilation helps catch errors early. If using Overleaf, take advantage of the real-time preview feature. For large projects, compile a small subset of the document during debugging.
+
+By following these practices, you can ensure your LaTeX document is easy to maintain and produces high-quality output.
+
+% 10. Conclusion
+\section{Conclusion}
+This tutorial introduced the basics of LaTeX, including:
+\begin{itemize}
+    \item Setting up the page layout.
+    \item Inserting Mathematical Formulas
+    \item Adding titles, figures, tables, and footnotes.
+    \item Custom
+    \item Managing references using BibTeX.
+\end{itemize}
+
+For more information, visit \url{https://www.overleaf.com/learn/latex/Learn_LaTeX_in_30_minutes}.
+
+\bibliographystyle{plain}
+\bibliography{papers}
+
+\end{document}
