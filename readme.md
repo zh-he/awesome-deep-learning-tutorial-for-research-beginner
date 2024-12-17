@@ -2,7 +2,7 @@
 
 - 论文排版
   - Markdown
-    - [MarkDown-Tutorial](./MarkDown-Tutorial)
+    - [MarkDown-Tutorial](./MarkDown-Tutorial) 
   - Latex:[LaTex-Tutorial](./LaTex-Tutorial)
 - Python基础numpy、pandas、matplotlib的常见用法：
   - [https://github.com/lijin-THU/notes-python](https://github.com/lijin-THU/notes-python)
