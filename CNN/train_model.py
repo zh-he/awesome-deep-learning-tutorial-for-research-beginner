@@ -11,12 +11,11 @@ import ResNet
 
 
 # 数据读取和预处理
-def get_data_loaders(data_dir, batch_size=64, valid_ratio=0.2):
+def get_data_loaders(data_dir, batch_size=32):
     """
     获取训练和验证的数据加载器
     :param data_dir: 数据集根目录，包含 train 和 val 文件夹
     :param batch_size: 批大小
-    :param valid_ratio: 验证集比例
     :return: 训练集和验证集的 DataLoader
     """
     # 定义图像预处理
@@ -36,8 +35,8 @@ def get_data_loaders(data_dir, batch_size=64, valid_ratio=0.2):
     ])
 
     # 使用 ImageFolder 加载数据
-    train_dataset = datasets.ImageFolder(os.path.join(data_dir, 'train', 'train'), transform=transform_train)
-    val_dataset = datasets.ImageFolder(os.path.join(data_dir, 'test', 'test'), transform=transform_val)
+    train_dataset = datasets.ImageFolder(os.path.join(data_dir, 'train'), transform=transform_train)
+    val_dataset = datasets.ImageFolder(os.path.join(data_dir, 'test'), transform=transform_val)
 
     # 创建 DataLoader
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
@@ -110,12 +109,25 @@ def validate(model, device, val_loader, criterion, epoch):
     return epoch_loss, epoch_acc
 
 
+def set_seed(seed=42):
+    """
+    设置随机数种子以确保可复现性。
+
+    :param seed: 随机数种子，默认为42
+    """
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    # 对于使用卷积等某些操作的确定性设置
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 # 主训练流程
 def main():
+    set_seed(42)
     # 配置参数
     data_dir = './dogs-vs-cats'  # 数据集路径
-    num_epochs = 30
-    batch_size = 64
+    num_epochs = 20
+    batch_size = 32
     learning_rate = 0.001
     num_classes = 2
     input_channels = 3
@@ -188,7 +200,8 @@ def main():
     plt.title('Validation Accuracy per Epoch')
     plt.legend()
     plt.grid(True)
-
+    plt.show()
+    print('训练结束')
 
 if __name__ == '__main__':
     main()

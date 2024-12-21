@@ -7,8 +7,6 @@ import torch.nn.functional as F
     Date: 2024/12/18
     Data Source: 链接：https://pan.baidu.com/s/1l1AnBgkAAEhh0vI5_loWKw 提取码：2xq4 blog:https://blog.csdn.net/dddccc1234/article/details/122622182
     Description: 利用ResNet实现猫狗分类
-    Have Done: ResNet sturcture
-    To Do: Load data, Classify
 """
 
 # 残差块
@@ -27,23 +25,24 @@ class Residual(nn.Module):
         x = self.conv3(x) if self.conv3 else x
         return F.relu(x + y)
 
+
 class SimpleResNet(nn.Module):
     def __init__(self, input_channels, num_channels, num_classes=2):
         super(SimpleResNet, self).__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(input_channels, num_channels, kernel_size=7, stride=1, padding=1),
+            nn.Conv2d(input_channels, num_channels, kernel_size=7, stride=2, padding=3, bias=False),
             nn.BatchNorm2d(num_channels),
             nn.ReLU(),
-            self._make_layer(num_channels, num_channels * 2, blocks=2),
-            self._make_layer(num_channels * 2, num_channels * 4, blocks=2),
-            self._make_layer(num_channels * 4, num_channels * 8, blocks=2),
-            self._make_layer(num_channels * 8, num_channels * 16, blocks=2),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            self._make_layer(num_channels, num_channels, blocks=2, stride=1),  # layer1
+            self._make_layer(num_channels, num_channels * 2, blocks=2, stride=2),  # layer2
+            self._make_layer(num_channels * 2, num_channels * 4, blocks=2, stride=2),  # layer3
+            self._make_layer(num_channels * 4, num_channels * 8, blocks=2, stride=2),  # layer4
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten()
         )
-        self.classifier = nn.Linear(num_channels * 16, num_classes)
+        self.classifier = nn.Linear(num_channels * 8, num_classes)
 
-    # *将List转为nn.Moudle对象
     def _make_layer(self, input_channels, num_channels, blocks, stride=2):
         layers = []
         layers.append(Residual(input_channels, num_channels, strides=stride))
