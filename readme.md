@@ -3,14 +3,17 @@
 - 论文排版
   - Markdown
     - [MarkDown-Tutorial](./MarkDown-Tutorial) 
-  - Latex:[LaTex-Tutorial](./LaTex-Tutorial)
+  - Latex
+    - [LaTex-Tutorial](./LaTex-Tutorial)
 - Python基础numpy、pandas、matplotlib的常见用法：
   - [https://github.com/lijin-THU/notes-python](https://github.com/lijin-THU/notes-python)
 - 经典模型的python实现
   - MLP：
-    - [MLP](./MLP) 这里用SGD和mini batch的SGD的MLP实现了一个分类
+    - [MLP](./MLP) 用SGD和mini batch的SGD的MLP实现了一个分类
   - RNN
+    - [RNN](./RNN)预测中国GDP
   - CNN
+    - [CNN](./CNN)实现猫狗分类和数字识别
   - LSTM
   - Encoder-Decoder
   - Transformer
