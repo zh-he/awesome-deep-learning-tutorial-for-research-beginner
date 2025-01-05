@@ -18,6 +18,7 @@
   - CNN
     - [CNN](./CNN)实现猫狗分类和数字识别
   - LSTM
+    - [LSTM](./LSTM)预测中美GDP
   - Seq2Seq
   - Transformer
 - C++基础
