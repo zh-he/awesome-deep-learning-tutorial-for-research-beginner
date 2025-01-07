@@ -1,97 +1,84 @@
 import torch
-from tqdm import tqdm
+import torch.nn as nn
+import torch.optim as optim
+from tqdm import tqdm  # 用于显示进度条
 
 
-def train_model(model, iterator, optimizer, criterion, clip, device):
+def init_weights(m):
+    """
+    初始化模型参数
+    """
+    for name, param in m.named_parameters():
+        if param.requires_grad:
+            nn.init.uniform_(param.data, -0.08, 0.08)
+
+
+def train_one_epoch(model, dataloader, optimizer, criterion, clip, device):
     model.train()
     epoch_loss = 0
-    epoch_acc = 0
-
-    for i, (src, trg, src_lengths, trg_lengths) in enumerate(tqdm(iterator, desc="Training")):
-        src = src.to(device)
-        trg = trg.to(device)
-
+    for src, trg in tqdm(dataloader, desc="Training", leave=False):
+        src, trg = src.to(device), trg.to(device)
         optimizer.zero_grad()
-        # forward
-        output = model(src, src_lengths, trg, teacher_forcing_ratio=0.5)
-        # output: [trg_len, batch_size, output_dim]
-        # trg:    [batch_size, trg_len]
 
+        output = model(src, trg)  # [trg_len, batch_size, output_dim]
+        # output 与 trg 的 shape 对齐
         output_dim = output.shape[-1]
-        # 去掉第一个 time step (它只是根据 SOS 输出)，并摊平
-        output = output[1:].view(-1, output_dim)  # [(trg_len -1) * batch_size, output_dim]
-        trg = trg[:, 1:].reshape(-1)  # [(trg_len -1) * batch_size]
+        output = output[1:].view(-1, output_dim)  # 去掉第0个时刻 <bos>
+        trg = trg[1:].reshape(-1)
 
         loss = criterion(output, trg)
-
-        # 计算准确率
-        preds = output.argmax(1)
-        correct = (preds == trg).float()
-        acc = correct.sum() / len(correct)
-
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), clip)  # 防止梯度爆炸
         optimizer.step()
-
         epoch_loss += loss.item()
-        epoch_acc += acc.item()
 
-    return epoch_loss / len(iterator), epoch_acc / len(iterator)
+    return epoch_loss / len(dataloader)
 
 
-def evaluate_model(model, iterator, criterion, device):
+def evaluate(model, dataloader, criterion, device):
     model.eval()
     epoch_loss = 0
-    epoch_acc = 0
-
     with torch.no_grad():
-        for i, (src, trg, src_lengths, trg_lengths) in enumerate(tqdm(iterator, desc="Evaluating")):
-            src = src.to(device)
-            trg = trg.to(device)
-
-            output = model(src, src_lengths, trg, teacher_forcing_ratio=0.0)
+        for src, trg in tqdm(dataloader, desc="Evaluating", leave=False):
+            src, trg = src.to(device), trg.to(device)
+            output = model(src, trg, teacher_forcing_ratio=0)
             output_dim = output.shape[-1]
-
             output = output[1:].view(-1, output_dim)
-            trg = trg[:, 1:].reshape(-1)
+            trg = trg[1:].reshape(-1)
 
             loss = criterion(output, trg)
-
-            preds = output.argmax(1)
-            correct = (preds == trg).float()
-            acc = correct.sum() / len(correct)
-
             epoch_loss += loss.item()
-            epoch_acc += acc.item()
-
-    return epoch_loss / len(iterator), epoch_acc / len(iterator)
+    return epoch_loss / len(dataloader)
 
 
-def epoch_time(start_time, end_time):
-    elapsed_time = end_time - start_time
-    elapsed_mins = int(elapsed_time / 60)
-    elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
-    return elapsed_mins, elapsed_secs
+def train_model(model, train_dataloader, val_dataloader, device,
+                n_epochs=20, clip=1, lr=1e-3, save_path='best_model.pt'):
+    """
+    整体训练流程，包括保存最佳模型
+    """
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.CrossEntropyLoss(ignore_index=0)  # 这里默认为 <pad> 的索引为0，需根据实际情况修改
 
+    best_val_loss = float('inf')
+    train_losses = []
+    val_losses = []
 
-def train_seq2seq(model, train_loader, valid_loader, optimizer, criterion, N_EPOCHS, CLIP, device):
-    import time
-    best_valid_loss = float('inf')
+    for epoch in range(n_epochs):
+        print(f"Epoch {epoch + 1}/{n_epochs}:")
+        # 训练
+        train_loss = train_one_epoch(model, train_dataloader, optimizer, criterion, clip, device)
+        # 验证
+        val_loss = evaluate(model, val_dataloader, criterion, device)
 
-    for epoch in range(N_EPOCHS):
-        start_time = time.time()
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
 
-        train_loss, train_acc = train_model(model, train_loader, optimizer, criterion, CLIP, device)
-        valid_loss, valid_acc = evaluate_model(model, valid_loader, criterion, device)
+        print(f"  >> Train Loss: {train_loss:.3f}, Val Loss: {val_loss:.3f}")
 
-        end_time = time.time()
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+        # 如果验证集更好，则保存当前权重
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), save_path)
+            print("  >> Best model saved.")
 
-        # 保存最优模型
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(model.state_dict(), 'best-model.pt')
-
-        print(f'Epoch: {epoch + 1:02} | Time: {epoch_mins}m {epoch_secs}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
-        print(f'\tVal.  Loss: {valid_loss:.3f} | Val.  Acc: {valid_acc * 100:.2f}%')
+    return train_losses, val_losses

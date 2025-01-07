@@ -1,221 +1,147 @@
-import random
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import PAD_token
-
 
 class Encoder(nn.Module):
     """
-    简化版：单向 LSTM，不做额外的线性映射。
-    直接将最后一层的 hidden & cell 作为输出，便于 Decoder 初始化。
+    编码器
     """
-    def __init__(self, input_dim, emb_dim, hid_dim, n_layers=1):
+
+    def __init__(self, input_dim, emb_dim, hid_dim, n_layers, dropout):
         super().__init__()
+        self.embedding = nn.Embedding(input_dim, emb_dim)
+        self.rnn = nn.LSTM(emb_dim, hid_dim, n_layers, dropout=dropout)
+        self.dropout = nn.Dropout(dropout)
 
-        self.embedding = nn.Embedding(input_dim, emb_dim, padding_idx=PAD_token)
-        self.lstm = nn.LSTM(
-            input_size=emb_dim,
-            hidden_size=hid_dim,
-            num_layers=n_layers,
-                   # 仅在除最后一层外的层之间生效
-            bidirectional=False     # 关键：单向
-        )
-
-
-    def forward(self, src, src_lengths):
-        """
-        src: [batch_size, src_len]
-        src_lengths: [batch_size], 记录每个句子的实际长度（可用于 pack/pad）
-        """
-        # [batch_size, src_len, emb_dim]
-        embedded = self.dropout(self.embedding(src))
-
-        # pack_padded_sequence 需 [seq_len, batch_size, emb_dim]
-        packed_embedded = nn.utils.rnn.pack_padded_sequence(
-            embedded.permute(1, 0, 2),  # (src_len, batch_size, emb_dim)
-            src_lengths,
-            enforce_sorted=False
-        )
-
-        # outputs: [src_len, batch_size, hid_dim] (因为单向)
-        packed_outputs, (hidden, cell) = self.lstm(packed_embedded)
-        outputs, _ = nn.utils.rnn.pad_packed_sequence(packed_outputs)
+    def forward(self, src):
+        # src: [src_len, batch_size]
+        embedded = self.dropout(self.embedding(src))  # [src_len, batch_size, emb_dim]
+        outputs, (hidden, cell) = self.rnn(embedded)
         # outputs: [src_len, batch_size, hid_dim]
-
-        # hidden, cell: [n_layers, batch_size, hid_dim]
-        # 如果 n_layers=1，则 hidden[-1]、cell[-1] 即可表示最后一步状态
-
+        # hidden: [n_layers, batch_size, hid_dim]
+        # cell:   [n_layers, batch_size, hid_dim]
         return outputs, hidden, cell
 
 
 class Attention(nn.Module):
     """
-    与之前相同的加性 Attention (类似 Bahdanau)，
-    仍然可保留，以提升翻译质量。
+    简单的 Luong Attention 实现
     """
+
     def __init__(self, hid_dim):
         super().__init__()
-        # 对 (decoder_hidden + encoder_output) 做线性映射
-        self.attn = nn.Linear(hid_dim + hid_dim, hid_dim)
+        self.attn = nn.Linear(hid_dim * 2, hid_dim)
         self.v = nn.Linear(hid_dim, 1, bias=False)
 
-    def forward(self, dec_hidden, encoder_outputs, mask):
+    def forward(self, hidden, encoder_outputs):
         """
-        dec_hidden: [batch_size, hid_dim], Decoder当前最后一层的隐藏状态
-        encoder_outputs: [src_len, batch_size, hid_dim], Encoder输出序列
-        mask: [batch_size, src_len], 1 表示有效位置，0 表示 PAD
+        hidden: [n_layers, batch_size, hid_dim], 这里取最后一层 hidden 用于注意力计算
+        encoder_outputs: [src_len, batch_size, hid_dim]
+        返回： [batch_size, src_len] 的注意力权重分布
         """
+        # 取 Decoder 最上层隐藏状态: hidden[-1] => [batch_size, hid_dim]
+        hidden = hidden[-1]
         src_len = encoder_outputs.shape[0]
 
-        # 让 dec_hidden 与每个 time step 的 encoder_outputs 拼接
-        # dec_hidden => [batch_size, 1, hid_dim] => repeat => [batch_size, src_len, hid_dim]
-        dec_hidden = dec_hidden.unsqueeze(1).repeat(1, src_len, 1)
-
-        # 维度对齐: encoder_outputs => [batch_size, src_len, hid_dim]
+        # encoder_outputs: [batch_size, src_len, hid_dim]
         encoder_outputs = encoder_outputs.permute(1, 0, 2)
+        # hidden: [batch_size, hid_dim] => [batch_size, 1, hid_dim]
+        hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)
 
-        # energy: [batch_size, src_len, hid_dim]
-        energy = torch.tanh(
-            self.attn(torch.cat((dec_hidden, encoder_outputs), dim=2))
-        )
+        # 拼接后通过一个线性层
+        energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))  # [batch_size, src_len, hid_dim]
 
-        # attention: [batch_size, src_len]
+        # 之后再过一个线性层 v => [batch_size, src_len, 1] => squeeze => [batch_size, src_len]
         attention = self.v(energy).squeeze(2)
-
-        # 对PAD位置mask掉
-        attention = attention.masked_fill(mask == 0, -1e10)
-
         return F.softmax(attention, dim=1)
 
 
 class Decoder(nn.Module):
     """
-    简化版 Decoder: 单向 LSTM + Attention (可选)。
+    解码器，加入 Attention
     """
-    def __init__(self, output_dim, emb_dim, hid_dim, n_layers=1, attention=None):
+
+    def __init__(self, output_dim, emb_dim, hid_dim, n_layers, dropout, attention):
         super().__init__()
-
         self.output_dim = output_dim
-        self.attention = attention  # 可以为 None，则不使用注意力
+        self.attention = attention
 
-        self.embedding = nn.Embedding(output_dim, emb_dim, padding_idx=PAD_token)
-        # Decoder LSTM 输入: (attended context + emb_dim)
-        input_dim_for_lstm = emb_dim if attention is None else (emb_dim + hid_dim)
+        self.embedding = nn.Embedding(output_dim, emb_dim)
+        self.rnn = nn.LSTM(hid_dim + emb_dim, hid_dim, n_layers, dropout=dropout)
+        self.fc_out = nn.Linear(hid_dim * 2, output_dim)
+        self.dropout = nn.Dropout(dropout)
 
-        self.lstm = nn.LSTM(
-            input_size=input_dim_for_lstm,
-            hidden_size=hid_dim,
-            num_layers=n_layers,
-            bidirectional=False
-        )
-        # 输出层: 结合了 LSTM输出 + 上一步的 context + embedding
-        # 如果不使用 Attention，则少一个 hid_dim
-        fc_in_dim = hid_dim + emb_dim
-        if attention is not None:
-            fc_in_dim += hid_dim
-
-        self.fc_out = nn.Linear(fc_in_dim, output_dim)
-
-    def forward(self, input, hidden, cell, encoder_outputs, mask):
+    def forward(self, input, hidden, cell, encoder_outputs):
         """
-        input: [batch_size], 解码器当前时刻输入的 token
+        input: [batch_size]
         hidden, cell: [n_layers, batch_size, hid_dim]
         encoder_outputs: [src_len, batch_size, hid_dim]
-        mask: [batch_size, src_len]
         """
-        # [1, batch_size]
-        input = input.unsqueeze(0)
+        input = input.unsqueeze(0)  # => [1, batch_size]
+        embedded = self.dropout(self.embedding(input))  # => [1, batch_size, emb_dim]
 
-        # [1, batch_size, emb_dim]
-        embedded = self.dropout(self.embedding(input))
+        # 计算注意力权重
+        a = self.attention(hidden, encoder_outputs)  # [batch_size, src_len]
+        a = a.unsqueeze(1)  # => [batch_size, 1, src_len]
 
-        # 如果有注意力:
-        if self.attention is not None:
-            # dec_hidden 用 hidden[-1], shape: [batch_size, hid_dim]
-            dec_hidden = hidden[-1]
-            # [batch_size, src_len]
-            a = self.attention(dec_hidden, encoder_outputs, mask)
-            a = a.unsqueeze(1)  # [batch_size, 1, src_len]
+        # encoder_outputs: [batch_size, src_len, hid_dim]
+        encoder_outputs = encoder_outputs.permute(1, 0, 2)
 
-            # encoder_outputs => [batch_size, src_len, hid_dim]
-            encoder_outputs = encoder_outputs.permute(1, 0, 2)
-            # [batch_size, 1, hid_dim]
-            context = torch.bmm(a, encoder_outputs)
-            # => [1, batch_size, hid_dim]
-            context = context.permute(1, 0, 2)
+        # 加权求和得到 context
+        context = torch.bmm(a, encoder_outputs)  # => [batch_size, 1, hid_dim]
+        context = context.permute(1, 0, 2)  # => [1, batch_size, hid_dim]
 
-            # 作为 LSTM 输入: [1, batch_size, emb_dim + hid_dim]
-            rnn_input = torch.cat((embedded, context), dim=2)
-        else:
-            # 不使用注意力
-            rnn_input = embedded
+        # rnn 的输入是 [emb_dim + hid_dim]
+        rnn_input = torch.cat((embedded, context), dim=2)
+        output, (hidden, cell) = self.rnn(rnn_input, (hidden, cell))
 
-        # 经过 LSTM
-        output, (hidden, cell) = self.lstm(rnn_input, (hidden, cell))
         # output: [1, batch_size, hid_dim]
-        # hidden, cell: [n_layers, batch_size, hid_dim]
-
-        # 计算输出
-        output = output.squeeze(0)  # [batch_size, hid_dim]
-        embedded = embedded.squeeze(0)  # [batch_size, emb_dim]
-
-        if self.attention is not None:
-            context = context.squeeze(0)  # [batch_size, hid_dim]
-            fc_input = torch.cat((output, context, embedded), dim=1)  # [batch_size, hid_dim+hid_dim+emb_dim]
-        else:
-            fc_input = torch.cat((output, embedded), dim=1)           # [batch_size, hid_dim+emb_dim]
-
-        # [batch_size, output_dim]
-        prediction = self.fc_out(fc_input)
+        # 拼接 output 和 context
+        output = torch.cat((output.squeeze(0), context.squeeze(0)), dim=1)
+        prediction = self.fc_out(output)  # => [batch_size, output_dim]
 
         return prediction, hidden, cell
 
 
 class Seq2Seq(nn.Module):
-    def __init__(self, encoder, decoder, src_pad_idx, device):
+    """
+    将 Encoder 和 Decoder 组合到一起
+    """
+
+    def __init__(self, encoder, decoder, device):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.src_pad_idx = src_pad_idx
         self.device = device
 
-    def create_mask(self, src):
-        # src: [batch_size, src_len]
-        return (src != self.src_pad_idx)  # [batch_size, src_len]
-
-    def forward(self, src, src_lengths, trg, teacher_forcing_ratio=0.5):
+    def forward(self, src, trg, teacher_forcing_ratio=0.5):
         """
-        src: [batch_size, src_len]
-        src_lengths: [batch_size]
-        trg: [batch_size, trg_len]
+        src: [src_len, batch_size]
+        trg: [trg_len, batch_size]
         """
-        batch_size = src.shape[0]
-        trg_len = trg.shape[1]
+        batch_size = src.shape[1]
+        trg_len = trg.shape[0]
         trg_vocab_size = self.decoder.output_dim
 
-        # decoder outputs: [trg_len, batch_size, trg_vocab_size]
+        # 编码器
+        encoder_outputs, hidden, cell = self.encoder(src)
+
+        # 准备一个容器来存放解码器的输出
         outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(self.device)
 
-        # 1) 编码
-        encoder_outputs, hidden, cell = self.encoder(src, src_lengths)
-        # hidden, cell => [n_layers, batch_size, hid_dim]
+        # 解码器第一个输入是 <bos>
+        input = trg[0, :]
 
-        # 2) Decoder初始输入: trg[:, 0] (通常是SOS)
-        input = trg[:, 0]
-        mask = self.create_mask(src)  # [batch_size, src_len]
-
-        # 3) 开始循环解码
         for t in range(1, trg_len):
-            output, hidden, cell = self.decoder(input, hidden, cell, encoder_outputs, mask)
+            # 将 encoder_outputs 也传给解码器，用于注意力
+            output, hidden, cell = self.decoder(input, hidden, cell, encoder_outputs)
             outputs[t] = output
-            # 计算 teacher forcing
-            teacher_force = random.random() < teacher_forcing_ratio
-            top1 = output.argmax(1)  # [batch_size]
 
-            # 下一个输入
-            input = trg[:, t] if teacher_force else top1
+            # 选出概率最大的词
+            top1 = output.argmax(1)
+            # 决定是否使用教师强制
+            teacher_force = torch.rand(1).item() < teacher_forcing_ratio
+            input = trg[t] if teacher_force else top1
 
         return outputs
