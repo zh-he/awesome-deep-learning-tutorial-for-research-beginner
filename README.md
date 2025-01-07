@@ -20,7 +20,9 @@
   - LSTM
     - [LSTM](./LSTM)预测中美GDP
   - Seq2Seq
+    - [Seq2Seq](./Seq2Seq)中英文翻译，Encoder使用LSTM,Decoder使用LSTM和Attention
   - Transformer
+    - [Tranformer](./Transformer)文本分类，只使用了Encoder
 - C++基础
 - CUDA编程
   - [官方教程](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
