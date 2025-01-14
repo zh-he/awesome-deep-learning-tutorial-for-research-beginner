@@ -1,309 +1,409 @@
 /******************************************************************************
- * 02_advanced_features.cpp
+ * 文件名：02_advanced_features.cpp
  *
- * 本文件涵盖 C++ 的进阶特性：
- * 1. 面向对象编程 (OOP)
- * 2. STL 容器和算法
- * 3. Lambda 表达式和现代 C++ 特性
- * 4. 模板和泛型编程
- * 5. 多线程编程基础
+ * 该示例演示了 C++ 中的以下进阶特性：
+ * 1. 异常处理机制
+ * 2. 面向对象编程 (OOP)
+ * 3. STL 容器和算法（含 stack 与 queue）
+ * 4. Lambda 表达式和现代 C++ 特性
+ * 5. 模板和泛型编程
+ * 6. 多线程编程基础
+ * 7. 运算符重载
+ * 8. 文件操作
  *
+ * 在学习该示例的过程中，建议先了解 C++ 基础语法，如基本数据类型、
+ * 指针与引用、控制流程、函数等，再来逐步深入。
  *****************************************************************************/
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
-#include <list>
-#include <algorithm>
-#include <stdexcept>
-#include <thread>             // std::thread
-#include <mutex>              // std::mutex, std::lock_guard
-#include <condition_variable> // std::condition_variable
-#include <future>             // std::async, std::future
-#include <chrono>             // std::chrono::seconds, std::this_thread::sleep_for
+#include <iostream>             // 标准输入输出流
+#include <string>               // 字符串
+#include <vector>               // 动态数组容器
+#include <map>                  // 键值对容器
+#include <set>                  // 集合容器
+#include <list>                 // 双向链表容器
+#include <stack>                // 栈容器适配器
+#include <queue>                // 队列容器适配器
+#include <algorithm>            // 常用算法，如 sort、find
+#include <stdexcept>            // 标准异常类
+#include <thread>               // 线程库
+#include <mutex>                // 互斥量
+#include <condition_variable>   // 条件变量
+#include <future>               // std::async、std::future
+#include <chrono>               // 时间库
+#include <fstream>              // 文件流
+#include <sstream>              // 字符串流
 
 /******************************************************************************
- * 第 1 部分：面向对象编程 (OOP)
- *
- * 核心概念：
- * 1. 类与对象：类是对象的模板，对象是类的实例
- * 2. 封装：通过访问修饰符（private/protected/public）控制成员的可见性
- * 3. 继承：子类继承父类的特性，实现代码重用
- * 4. 多态：通过虚函数 (virtual) 实现运行时的动态绑定
- * 5. 构造函数和析构函数：管理对象的生命周期
- *    - 构造函数：对象创建时自动执行，用于初始化成员变量或分配资源
- *    - 析构函数：对象销毁时自动执行，用于释放资源或做清理操作
+ * 第 1 部分：异常处理
+ * 
+ * C++ 中的异常处理通过 try-catch 机制实现，可以捕获并处理在运行时
+ * 抛出的异常对象。throw 可以抛出异常对象，catch 通过类型匹配捕获异常。
  *****************************************************************************/
 
-// 定义一个基类 Person
-class Person
-{
+// 自定义文件操作异常，继承自 std::runtime_error
+class FileError : public std::runtime_error {
 public:
-    // 构造函数：在创建对象时自动调用，可在此进行成员变量初始化
-    Person(const std::string &name, int age) : name_(name), age_(age)
+    FileError(const std::string& msg) 
+        : std::runtime_error(msg) {}
+};
+
+// 自定义年龄验证异常，继承自 std::runtime_error
+class InvalidAgeError : public std::runtime_error {
+public:
+    InvalidAgeError(const std::string& msg) 
+        : std::runtime_error(msg) {}
+};
+
+/******************************************************************************
+ * 第 2 部分：面向对象编程 (OOP)
+ * 
+ * C++ 中的继承、封装、多态是 OOP 的核心。下面代码中：
+ * 1. Person 是一个抽象基类（含纯虚函数 work()）。
+ * 2. Teenager 和 Student 分别继承自 Person。
+ * 3. 演示了虚析构函数、虚函数覆盖、运算符重载、友元函数等。
+ *****************************************************************************/
+
+// 定义基类 Person（抽象类）
+class Person {
+public:
+    // 构造函数，加入年龄验证
+    Person(const std::string& name, int age) 
+        : name_(name), age_(age) 
     {
+        // 如果年龄不合理，则抛出自定义异常
+        if (age < 0 || age > 150) {
+            throw InvalidAgeError("Age must be between 0 and 150");
+        }
         std::cout << "[Person 构造函数] name = " << name_
                   << ", age = " << age_ << std::endl;
     }
 
-    // 虚析构函数：多态场景下，确保派生类的析构函数也能被正确调用
-    virtual ~Person()
-    {
+    // 虚析构函数：保证派生类对象通过基类指针删除时能正确调用派生类的析构函数
+    virtual ~Person() {
         std::cout << "[Person 析构函数]" << std::endl;
     }
 
-    // 公共接口：打印对象信息
-    void printInfo() const
-    {
+    // 纯虚函数，使 Person 成为抽象类（不能直接实例化）
+    virtual void work() const = 0;
+
+    // 虚函数：打印对象信息，可在派生类中覆盖
+    virtual void printInfo() const {
         std::cout << "Name: " << name_
                   << ", Age: " << age_ << std::endl;
     }
 
-    // 虚函数：允许派生类覆盖，体现多态
-    virtual void testVirtual()
-    {
-        std::cout << "I am a Person" << std::endl;
+    // 运算符重载：演示 < 与 == 的重载
+    bool operator<(const Person& other) const {
+        return age_ < other.age_;
     }
 
-private:
-    std::string name_; // 封装的数据成员
-    int age_;
+    bool operator==(const Person& other) const {
+        return (age_ == other.age_) && (name_ == other.name_);
+    }
+
+    // 友元函数：输出流运算符重载，通过友元可以访问 private 成员
+    friend std::ostream& operator<<(std::ostream& os, const Person& person);
+
+protected:
+    std::string name_;  // 姓名
+    int age_;           // 年龄
 };
 
-// 派生类 Teenager，演示继承和多态
-class Teenager : public Person
-{
+// 友元函数：输出运算符重载
+std::ostream& operator<<(std::ostream& os, const Person& person) {
+    os << "Person[name=" << person.name_ 
+       << ", age=" << person.age_ << "]";
+    return os;
+}
+
+// 派生类 Teenager，继承自 Person
+class Teenager : public Person {
 public:
-    // 构造函数：利用初始化列表调用基类的构造函数
-    Teenager(const std::string &name, int age)
-        : Person(name, age)
-    {
+    Teenager(const std::string& name, int age)
+        : Person(name, age) {
         std::cout << "[Teenager 构造函数]" << std::endl;
     }
 
-    // 覆盖基类的虚析构函数
-    ~Teenager() override
-    {
+    ~Teenager() override {
         std::cout << "[Teenager 析构函数]" << std::endl;
     }
 
-    // 重写虚函数，实现多态
-    void testVirtual() override
-    {
-        std::cout << "I am a Teenager" << std::endl;
+    // 必须实现纯虚函数 work()
+    void work() const override {
+        std::cout << name_ << " is studying in high school" << std::endl;
+    }
+};
+
+// 派生类 Student，继承自 Person
+class Student : public Person {
+public:
+    Student(const std::string& name, int age, const std::string& major)
+        : Person(name, age), major_(major) {}
+
+    // 实现纯虚函数 work()
+    void work() const override {
+        std::cout << name_ << " is studying " << major_ << std::endl;
+    }
+
+    // 覆盖基类的 printInfo()
+    void printInfo() const override {
+        Person::printInfo();
+        std::cout << "Major: " << major_ << std::endl;
+    }
+
+private:
+    std::string major_;  // 专业
+};
+
+/******************************************************************************
+ * 第 3 部分：文件操作
+ * 
+ * 通过 <fstream> 提供的 ifstream、ofstream、fstream 等类进行文件读写。
+ * 下例中 FileManager 封装了文件的读写操作，并在失败时抛出自定义异常 FileError。
+ *****************************************************************************/
+
+class FileManager {
+public:
+    // 将 Person* 向量中的内容写入文件
+    static void writeToFile(const std::string& filename, const std::vector<Person*>& people) {
+        std::ofstream file(filename);
+        if (!file) {
+            throw FileError("Cannot open file for writing: " + filename);
+        }
+        
+        // 将每个 Person* 的内容写到文件
+        for (const auto& person : people) {
+            file << *person << "\n";
+        }
+    }
+    
+    // 从文件中读取所有内容并返回 string
+    static std::string readFromFile(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file) {
+            throw FileError("Cannot open file for reading: " + filename);
+        }
+        
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        return buffer.str();
     }
 };
 
 /******************************************************************************
- * 第 2 部分：STL (Standard Template Library)
- *
- * 核心概念：
- * 1. 容器：存储和组织数据的数据结构
- *    - 序列容器：vector, list, deque
- *    - 关联容器：set, map
- *    - 无序容器：unordered_set, unordered_map
- * 2. 迭代器：用于遍历容器的接口
- * 3. 算法：独立于容器的通用算法（如排序、查找）
- *
- * 下面演示了部分容器的 CRUD 操作（Create, Read, Update, Delete）。
+ * 第 4 部分：STL (Standard Template Library)
+ * 
+ * 1. 容器（如 vector、map、set、list、stack、queue）
+ * 2. 常用算法（如 sort、find、erase 等）
+ * 3. 迭代器与范围 for 循环
  *****************************************************************************/
 
-void demonstrateSTL()
-{
+void demonstrateSTL() {
     std::cout << "[STL 容器与算法演示 - CRUD 示例]" << std::endl;
 
     // 1. vector：动态数组
-    //  (1) Create
     std::vector<int> vec = {1, 2, 3};
-    //  (2) Read
     std::cout << "vector 初始化内容: ";
-    for (auto &val : vec)
-    {
+    for (auto& val : vec) {
         std::cout << val << " ";
     }
     std::cout << std::endl;
-    //  (3) Update
-    vec.push_back(4); // 在末尾添加元素
-    vec[0] = 10;      // 修改第一个元素
-    //  (4) Delete
-    vec.pop_back(); // 删除末尾元素
+    
+    // vector 的增删改操作
+    vec.push_back(4);  // 末尾添加元素
+    vec[0] = 10;       // 修改第一个元素
+    vec.pop_back();    // 弹出末尾元素
 
     std::cout << "vector 修改后内容: ";
-    for (auto &val : vec)
-    {
+    for (auto& val : vec) {
         std::cout << val << " ";
     }
-    std::cout << std::endl
-              << std::endl;
+    std::cout << std::endl << std::endl;
 
     // 2. map：键值对容器
-    //  (1) Create
     std::map<std::string, int> ages;
     ages["Alice"] = 25;
     ages["Bob"] = 30;
-    //  (2) Read
+    
     std::cout << "map 内容: ";
-    for (auto &kv : ages)
-    {
+    for (auto& kv : ages) {
         std::cout << kv.first << ":" << kv.second << " ";
     }
     std::cout << std::endl;
-    //  (3) Update
-    ages["Alice"] = 26; // 更新 Alice 的年龄
-    //  (4) Delete
-    ages.erase("Bob"); // 删除 Bob 这条记录
+    
+    // 修改和删除
+    ages["Alice"] = 26;  // 修改
+    ages.erase("Bob");   // 删除
 
     std::cout << "map 修改后内容: ";
-    for (auto &kv : ages)
-    {
+    for (auto& kv : ages) {
         std::cout << kv.first << ":" << kv.second << " ";
     }
-    std::cout << std::endl
-              << std::endl;
+    std::cout << std::endl << std::endl;
 
     // 3. set：唯一元素集合
-    //  (1) Create
-    std::set<int> numSet = {3, 1, 4, 1, 5}; // 重复元素不会插入
-    //  (2) Read
+    std::set<int> numSet = {3, 1, 4, 1, 5};
     std::cout << "set 内容: ";
-    for (auto &val : numSet)
-    {
+    for (auto& val : numSet) {
         std::cout << val << " ";
     }
     std::cout << std::endl;
-    //  (3) Update
-    // set 中没有直接“更新”已有元素的操作，一般先删后插
-    if (numSet.find(3) != numSet.end())
-    {
-        numSet.erase(3);
-        numSet.insert(33); // 相当于“更新”
+
+    // 查找与插入删除
+    if (numSet.find(3) != numSet.end()) {
+        numSet.erase(3);   // 删除
+        numSet.insert(33); // 插入
     }
-    //  (4) Delete
     numSet.erase(1);
 
     std::cout << "set 修改后内容: ";
-    for (auto &val : numSet)
-    {
+    for (auto& val : numSet) {
         std::cout << val << " ";
     }
-    std::cout << std::endl
-              << std::endl;
+    std::cout << std::endl << std::endl;
 
     // 4. list：双向链表容器
-    //  (1) Create
     std::list<int> myList = {10, 20, 30};
-    //  (2) Read
     std::cout << "list 内容: ";
-    for (auto &val : myList)
-    {
+    for (auto& val : myList) {
         std::cout << val << " ";
     }
     std::cout << std::endl;
-    //  (3) Update
-    myList.push_front(5);     // 头部插入
-    *(++myList.begin()) = 15; // 修改第二个元素
-    //  (4) Delete
-    myList.pop_back(); // 删除尾部元素
+
+    // list 的增删改
+    myList.push_front(5);         // 头部插入
+    *(++myList.begin()) = 15;     // 修改第二个元素
+    myList.pop_back();            // 删除末尾元素
 
     std::cout << "list 修改后内容: ";
-    for (auto &val : myList)
-    {
+    for (auto& val : myList) {
         std::cout << val << " ";
     }
-    std::cout << std::endl
-              << std::endl;
+    std::cout << std::endl << std::endl;
 
-    // 常用算法演示：sort / find
+    // 5. stack：栈（后进先出 - LIFO）
+    std::stack<int> s;
+    s.push(1);
+    s.push(2);
+    s.push(3);
+    std::cout << "stack 顶部元素: " << s.top() << std::endl;
+    s.pop();
+    std::cout << "stack 弹出一个元素后，新的顶部元素: " << s.top() << std::endl << std::endl;
+
+    // 6. queue：队列（先进先出 - FIFO）
+    std::queue<int> q;
+    q.push(10);
+    q.push(20);
+    q.push(30);
+    std::cout << "queue 队首元素: " << q.front() << ", 队尾元素: " << q.back() << std::endl;
+    q.pop();
+    std::cout << "queue 弹出一个元素后，新队首元素: " << q.front() << std::endl << std::endl;
+
+    // 常用算法演示
     std::vector<int> algoVec = {4, 1, 3, 2, 5};
-    std::sort(algoVec.begin(), algoVec.end());              // 排序
-    auto it = std::find(algoVec.begin(), algoVec.end(), 3); // 查找
-    if (it != algoVec.end())
-    {
+    std::sort(algoVec.begin(), algoVec.end());  // 排序
+    auto it = std::find(algoVec.begin(), algoVec.end(), 3);  // 查找
+    if (it != algoVec.end()) {
         std::cout << "在 algoVec 中找到了 3" << std::endl;
     }
 
     std::cout << "algoVec 排序后: ";
-    for (auto &val : algoVec)
-    {
+    for (auto& val : algoVec) {
         std::cout << val << " ";
     }
-    std::cout << std::endl
-              << std::endl;
+    std::cout << std::endl << std::endl;
 }
 
 /******************************************************************************
- * 第 3 部分：Lambda 表达式和现代 C++ 特性
- *
- * 核心概念：
- * 1. Lambda 表达式：创建匿名函数对象
- *    语法：[捕获列表](参数列表) -> 返回类型 { 函数体 }
- * 2. auto：类型推导
- * 3. 范围 for 循环：简化容器遍历
- * 4. 智能指针：自动内存管理（如 std::unique_ptr, std::shared_ptr）
+ * 第 5 部分：Lambda 表达式和现代 C++ 特性
+ * 
+ * 1. lambda 表达式：可在函数内部临时定义函数
+ * 2. auto 关键字：自动类型推导
+ * 3. 范围 for 循环
  *****************************************************************************/
 
-void demonstrateModernCpp()
-{
+void demonstrateModernCpp() {
     std::cout << "[Lambda 表达式与现代 C++ 特性]" << std::endl;
 
     // 1. 简单 Lambda 示例
-    auto add = [](int a, int b)
-    {
-        return a + b;
-    };
+    auto add = [](int a, int b) { return a + b; };
     int sum = add(3, 5);
     std::cout << "add(3, 5) = " << sum << std::endl;
 
     // 2. 带捕获的 Lambda
     int multiplier = 10;
-    auto multiply = [multiplier](int x)
-    {
-        return x * multiplier;
-    };
+    auto multiply = [multiplier](int x) { return x * multiplier; };
     std::cout << "multiply(4) = " << multiply(4) << std::endl;
 
     // 3. 范围 for 循环
     std::vector<int> numbers = {1, 2, 3, 4, 5};
     std::cout << "numbers: ";
-    for (const auto &num : numbers)
-    {
+    for (const auto& num : numbers) {
         std::cout << num << " ";
     }
-    std::cout << std::endl
-              << std::endl;
+    std::cout << std::endl << std::endl;
 }
 
 /******************************************************************************
- * 第 4 部分：模板与泛型编程
- *
- * 核心概念：
- * 1. 函数模板：生成适用于不同类型的函数
- * 2. 类模板：生成适用于不同类型的类
- * 3. 模板特化：为特定类型提供专门实现 (此处暂不展示)
+ * 第 6 部分：模板与泛型编程
+ * 
+ * 函数模板与类模板是 C++ 泛型编程的核心，可使代码具有更高的复用性。
  *****************************************************************************/
 
-// 函数模板示例：求两个数的较大值
+// 函数模板示例：返回两者中较大值
 template <typename T>
-T myMax(T a, T b)
-{
+T myMax(T a, T b) {
     return (a > b) ? a : b;
 }
 
-// 类模板示例：容器类，内部使用 std::vector 来存储
-template <typename T>
-class Container
-{
+// 类模板示例：简单的安全数组包装
+template<typename T>
+class SafeArray {
 public:
-    void add(T element)
-    {
+    // 构造函数动态申请数组
+    SafeArray(size_t size) 
+        : size_(size), data_(new T[size]) {}
+
+    // 析构函数释放资源
+    ~SafeArray() { 
+        delete[] data_; 
+    }
+    
+    // 重载下标运算符 (非 const 版本)
+    T& operator[](size_t index) {
+        if (index >= size_) {
+            throw std::out_of_range("Index out of bounds");
+        }
+        return data_[index];
+    }
+    
+    // 重载下标运算符 (const 版本)
+    const T& operator[](size_t index) const {
+        if (index >= size_) {
+            throw std::out_of_range("Index out of bounds");
+        }
+        return data_[index];
+    }
+
+private:
+    size_t size_;
+    T* data_;
+    
+    // 为简化示例，禁止拷贝和赋值
+    SafeArray(const SafeArray&) = delete;
+    SafeArray& operator=(const SafeArray&) = delete;
+};
+
+// 容器类模板：使用 std::vector 来存储任意类型数据
+template <typename T>
+class Container {
+public:
+    void add(T element) {
         data_.push_back(element);
     }
-    void print() const
-    {
-        for (auto &el : data_)
-        {
+
+    void print() const {
+        for (auto& el : data_) {
             std::cout << el << " ";
         }
         std::cout << std::endl;
@@ -314,73 +414,46 @@ private:
 };
 
 /******************************************************************************
- * 第 5 部分：多线程编程
- *
- * 核心概念：
- * 1. 线程：最小的执行单元 (std::thread)
- * 2. 互斥量 (std::mutex)：保护共享资源，防止数据竞争
- * 3. 条件变量 (std::condition_variable)：线程同步机制
- * 4. future/promise：异步任务结果的传递
- * 5. async：高级异步执行，实现简洁的并行
+ * 第 7 部分：多线程编程
+ * 
+ * C++11 提供了 <thread>、<mutex>、<condition_variable> 等库，可实现多线程
+ * 编程。以下示例展示了生产者-消费者模型、线程同步与通信、以及 std::async 等。
  *****************************************************************************/
 
-// 互斥量：保护共享资源
 std::mutex mtx;
-
-// 条件变量：用于实现线程同步
 std::condition_variable cv;
-bool ready = false;
+bool ready = false;  // 表示数据是否就绪
+int shared_data = 0; // 共享数据
 
-// 共享资源
-int shared_data = 0;
-
-/******************************************************************************
- * 生产者-消费者示例
- * 生产者：写入 shared_data 并通知消费者
- * 消费者：等待通知，读取 shared_data
- *****************************************************************************/
-
-// 生产者函数
-void producer()
-{
+// 生产者线程函数
+void producer() {
     {
-        // std::lock_guard 会在作用域结束时自动解锁
         std::lock_guard<std::mutex> lock(mtx);
-        shared_data = 42; // 生产数据
+        shared_data = 42;
         ready = true;
         std::cout << "[producer] 数据已生产: " << shared_data << std::endl;
     }
-    // 通知等待的消费者线程
+    // 唤醒等待的消费者线程
     cv.notify_one();
 }
 
-// 消费者函数
-void consumer()
-{
-    // std::unique_lock 允许显式地锁定和解锁互斥量
+// 消费者线程函数
+void consumer() {
     std::unique_lock<std::mutex> lock(mtx);
-    // 等待条件满足 (ready == true)
-    cv.wait(lock, []
-            { return ready; });
+    // 等待直到 ready 为 true
+    cv.wait(lock, [] { return ready; });
     std::cout << "[consumer] 消费到的数据: " << shared_data << std::endl;
 }
 
-/******************************************************************************
- * 多线程基础演示
- *****************************************************************************/
-
-// 演示：简单线程函数
-void basicThread(int id)
-{
-    // 演示加锁，保证一次只允许一个线程输出信息
+// 简单线程函数示例
+void basicThread(int id) {
     std::lock_guard<std::mutex> lock(mtx);
     std::cout << "Thread " << id << " is running" << std::endl;
 }
 
-// 演示：使用 async 执行异步任务
-int calculateSum(int a, int b)
-{
-    // 模拟一个耗时操作
+// 演示 std::async 和 std::future
+int calculateSum(int a, int b) {
+    // 模拟耗时操作
     std::this_thread::sleep_for(std::chrono::seconds(1));
     return a + b;
 }
@@ -388,41 +461,67 @@ int calculateSum(int a, int b)
 /******************************************************************************
  * main 函数：汇总并演示上述各个模块的特性
  *****************************************************************************/
-int main()
-{
+
+int main() {
     std::cout << "=== C++ 进阶特性演示 ===" << std::endl;
 
-    /**************************************************************************
-     * 1. 面向对象演示
-     **************************************************************************/
-    std::cout << "\n--- OOP 演示 ---\n";
-    // 演示多态：基类指针指向派生类对象
-    Person *person = new Teenager("Alice", 15);
-    person->testVirtual(); // 多态调用：实际调用 Teenager::testVirtual()
-    person->printInfo();
-    // 手动释放对象：会先调用 Teenager 的析构函数，再调用 Person 的析构函数
-    delete person;
+    // ---------------------
+    // 1. 异常处理 + OOP 演示
+    // ---------------------
+    std::cout << "\n--- 异常处理和 OOP 演示 ---\n";
+    try {
+        // 尝试创建一个年龄非法的对象
+        Person* invalidPerson = new Student("Invalid", -1, "CS");
+        // 如果上面未抛出异常，则需要 delete
+        delete invalidPerson;
+    } catch (const InvalidAgeError& e) {
+        std::cerr << "Age error: " << e.what() << std::endl;
+    }
 
-    /**************************************************************************
-     * 2. STL 演示
-     **************************************************************************/
+    // 创建一些 Person 派生类对象
+    std::vector<Person*> people;
+    people.push_back(new Student("Alice", 20, "Computer Science"));
+    people.push_back(new Teenager("Bob", 15));
+
+    // 演示虚函数调用
+    for (const auto& person : people) {
+        person->work();       // 多态调用
+        person->printInfo();  // 多态调用
+        std::cout << *person << std::endl; // 调用友元函数重载的输出运算符
+    }
+
+    // ---------------------
+    // 2. 文件操作演示
+    // ---------------------
+    std::cout << "\n--- 文件操作演示 ---\n";
+    try {
+        FileManager::writeToFile("people.txt", people);
+        std::cout << "File content:\n"
+                  << FileManager::readFromFile("people.txt");
+    } catch (const FileError& e) {
+        std::cerr << "File error: " << e.what() << std::endl;
+    }
+
+    // ---------------------
+    // 3. STL 演示
+    // ---------------------
     std::cout << "\n--- STL 演示 ---\n";
     demonstrateSTL();
 
-    /**************************************************************************
-     * 3. 现代C++特性演示
-     **************************************************************************/
+    // ---------------------
+    // 4. 现代C++特性演示
+    // ---------------------
     std::cout << "\n--- 现代C++特性演示 ---\n";
     demonstrateModernCpp();
 
-    /**************************************************************************
-     * 4. 模板演示
-     **************************************************************************/
+    // ---------------------
+    // 5. 模板演示
+    // ---------------------
     std::cout << "\n--- 模板演示 ---\n";
     std::cout << "myMax(10, 20) = " << myMax(10, 20) << std::endl;
     std::cout << "myMax(3.14, 2.72) = " << myMax(3.14, 2.72) << std::endl;
 
-    // 类模板的使用
+    // 演示容器类模板
     Container<int> intContainer;
     intContainer.add(1);
     intContainer.add(2);
@@ -430,35 +529,52 @@ int main()
     std::cout << "intContainer 内容: ";
     intContainer.print();
 
-    /**************************************************************************
-     * 5. 多线程演示
-     **************************************************************************/
-    std::cout << "\n--- 多线程演示 ---\n";
-
-    // (1) 基础线程使用
-    std::vector<std::thread> threads;
-    for (int i = 0; i < 3; ++i)
-    {
-        threads.emplace_back(basicThread, i);
+    // 演示 SafeArray
+    SafeArray<int> numbers(5);
+    for (size_t i = 0; i < 5; ++i) {
+        numbers[i] = static_cast<int>(i * 10);
     }
-    for (auto &t : threads)
-    {
-        t.join(); // 等待线程执行完毕
+    std::cout << "SafeArray 内容: ";
+    for (size_t i = 0; i < 5; ++i) {
+        std::cout << numbers[i] << " ";
+    }
+    std::cout << std::endl;
+
+    // 故意触发越界异常
+    try {
+        std::cout << numbers[10] << std::endl; // 应该抛出 std::out_of_range
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
     }
 
-    // (2) 生产者-消费者模式
+    // ---------------------
+    // 6. 多线程编程演示
+    // ---------------------
+    std::cout << "\n--- 多线程编程演示 ---\n";
+
+    // 6.1 基础线程示例
+    std::thread t1(basicThread, 1);
+    std::thread t2(basicThread, 2);
+
+    // 6.2 生产者-消费者模型
     std::thread prod(producer);
     std::thread cons(consumer);
+
+    // 6.3 std::async 和 std::future
+    std::future<int> result = std::async(std::launch::async, calculateSum, 10, 20);
+    std::cout << "正在计算 10 + 20..." << std::endl;
+    std::cout << "10 + 20 = " << result.get() << std::endl; // get() 会等待线程完成并获取返回值
+
+    // 等待所有线程结束
+    t1.join();
+    t2.join();
     prod.join();
     cons.join();
 
-    // (3) async 示例
-    std::cout << "\n--- async 示例 ---\n";
-    auto future = std::async(std::launch::async, calculateSum, 2, 3);
-    std::cout << "主线程：做一些其他工作..." << std::endl;
-    // get() 会阻塞主线程，直到异步任务完成并返回结果
-    int result = future.get();
-    std::cout << "异步计算结果: " << result << std::endl;
+    // 释放 people 中的动态对象
+    for (auto& person : people) {
+        delete person;
+    }
 
     std::cout << "\n=== 程序结束 ===" << std::endl;
     return 0;
