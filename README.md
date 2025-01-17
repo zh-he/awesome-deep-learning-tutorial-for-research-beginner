@@ -9,7 +9,6 @@
   - https://github.com/lijin-THU/notes-python
 - Pytorch的常用用法：
   - https://pytorch.org/docs/stable/index.html
-
 - 经典模型的python实现
   - MLP：
     - [MLP](./MLP) 用SGD和mini batch的SGD的MLP实现了一个分类
@@ -24,6 +23,8 @@
   - Transformer
     - [Tranformer](./Transformer)文本分类，只使用了Encoder
 - C++基础
+  - [C++](./CPP)基本语法和MLP以及基于LeNet的MNIST数字识别
+
 - CUDA编程
   - [官方教程](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
   - [中文版](https://github.com/HeKun-NVIDIA/CUDA-Programming-Guide-in-Chinese)

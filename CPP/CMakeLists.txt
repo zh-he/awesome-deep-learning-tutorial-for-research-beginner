@@ -1,29 +1,45 @@
 cmake_minimum_required(VERSION 3.10)
-project(CPP)
+project(dl LANGUAGES CXX CUDA)
 
-# 设置 C++ 标准为 C++17
+# Set C++ standard globally
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# 查找 CUDA
-find_package(CUDAToolkit)
-
-# 设置 LibTorch 的路径
-set(Torch_DIR "E:/Libtorch/libtorch/share/cmake/Torch")
-
-# 找到 LibTorch
-find_package(Torch REQUIRED)
-
-# 添加可执行目标
-add_executable(lenet_mnist 04_advanced_dl.cpp)
-
-# 链接 LibTorch 库
-target_link_libraries(lenet_mnist "${TORCH_LIBRARIES}")
-
-# 如果找到了 CUDA，我们将 CUDA 库也链接到目标上
-if (CUDAToolkit_FOUND)
-  target_link_libraries(lenet_mnist CUDA::cudart CUDA::cuda_driver)
+# MSVC specific settings
+if(MSVC)
+    # Force MSVC to accept the /std:c++17 flag
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
+    add_compile_options(
+        /utf-8      # Add UTF-8 support
+        /MP         # Enable parallel compilation
+        /W4         # High warning level
+    )
 endif()
 
-# 设置目标的 C++ 标准
-set_property(TARGET lenet_mnist PROPERTY CXX_STANDARD 17)
+# Set PyTorch path
+set(Torch_DIR "your_torch_path")
+
+# Find PyTorch
+find_package(Torch REQUIRED)
+
+# Add executable
+add_executable(lenet_mnist "04_advanced.cpp")
+
+# Link libraries
+target_link_libraries(lenet_mnist PRIVATE ${TORCH_LIBRARIES})
+
+# Set target properties
+set_target_properties(lenet_mnist PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Copy PyTorch DLLs to output directory (Windows only)
+if(MSVC)
+    add_custom_command(TARGET lenet_mnist POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE_DIR:torch_cpu>
+        $<TARGET_FILE_DIR:lenet_mnist>
+    )
+endif()
