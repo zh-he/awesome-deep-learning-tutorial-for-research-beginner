@@ -28,7 +28,7 @@
 - CUDA编程
   - [官方教程](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
   - [中文版](https://github.com/HeKun-NVIDIA/CUDA-Programming-Guide-in-Chinese)
-  - CUDA-Samples
+  - [CUDA-Samples](./CUDA)
 - 教材/网课：
   - 《动手学深度学习》
     - [官网](https://zh.d2l.ai/)
